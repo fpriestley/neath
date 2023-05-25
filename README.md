@@ -1,2 +1,2 @@
 # neath
-Astrochemical model for hydrodynamical simulations
+NEATH is a framework for post-processing hydrodynamical simulations with a time-dependent astrochemical network, allowing the abundances of hundreds of molecules to be calculated at low computational cost. The code in this repository is an implementation based on a modified version of [UCLCHEM](https://uclchem.github.io/) ([Holdship et al. 2017](https://ui.adsabs.harvard.edu/abs/2017AJ....154...38H/abstract)), which has significantly diverged from the main branch.
