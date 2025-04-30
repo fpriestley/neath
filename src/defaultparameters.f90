@@ -8,7 +8,7 @@ initialDens=1.00d2;finalDens=1.00d6
 currentTime=0.0;finalTime=1.00d8
 
 !radfield in habing, cosmic ray ionisation rates as multiple of standard
-radfield=1.7;zeta=7.7
+radfield=1.7;zeta=16.7
 
 !Scale freeze out efficiency by an aribtrary value. 
 fr=1.0;
@@ -62,7 +62,7 @@ vs=20.0
 
 !initial fractional abundances of elements(from Asplund et al. 2009 ARAA table 1 -SOLAR)
 fh=0.0;fhe = 0.1;fc  = 1.4d-04;fo  = 3.2d-04;fn  = 7.6e-5
-fs  = 1.2d-05;fmg = 1.4d-07;fsi = 1.5d-07;fcl = 3.162d-07;
+fs  = 1.2d-07;fmg = 1.4d-07;fsi = 1.5d-07;fcl = 3.162d-07;
 fp=2.57d-09 ; ff = 3.6d-08 !fp depleted 1/100 of solar
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -74,7 +74,7 @@ fp=2.57d-09 ; ff = 3.6d-08 !fp depleted 1/100 of solar
 !Fortran will reject this array if species with shorter names are not padded with spaces at the end.
 !array commented so it does not override array in input file. 
 !If no array is passed in input, no column file is written
-outSpecies=(/'H2   ','E-   ','CO   ','NH3  ','HCN  ','N2H+ ','HCO+ ','CS   ','HNC  ','CH3OH','CN   ','C2H  '/)
+outSpecies=(/'H2   ','E-   ','CO   ','NH3  ','HCN  ','N2H+ ','HCO+ ','CS   ','HNC  '/)
 
 !writeStep sets how often columns written out. Columns written every n steps for writeStep=n.
 writeStep=1

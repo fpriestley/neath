@@ -1,5 +1,5 @@
 SUBROUTINE calculateReactionRates
-!Assuming the user has temperature changes or uses the desorption features of phase 1, these need working out on a timestep by time step basis
+  !Assuming the user has temperature changes or uses the desorption features of phase 1, these need working out on a timestep by time step basis
     DO j=1,nreac
         !This case structure looks at the reaction type. species-species happens in default.
         !Other cases are special reactions, particularly desorption events (photons, CRs etc)
@@ -23,20 +23,24 @@ SUBROUTINE calculateReactionRates
             IF (evap .ne. 0 .or. fr .eq. 0.0) then
                 rate(j)=0.0
             ELSE
-                IF (re1(j).eq."E-") THEN
-                    cion=1.0+16.71d-4/(GRAIN_RADIUS*temp(dstep))
-                    rate(j)=4.57d4*alpha(j)*GRAIN_AREA*fr*cion
+               IF (re1(j).eq."E-") THEN
+                   rate(j) = 0.
+                   !cion=1.0+16.71d-4/(GRAIN_RADIUS*temp(dstep))
+                   !rate(j)=4.57d4*alpha(j)*dsqrt(temp(dstep))*GRAIN_AREA*fr*cion*exp(-temp(dstep)*1e-3)
+                   ! use correct cion for -ve charge from WD99
+                   !cion=dexp(-16.71d-4/(GRAIN_RADIUS*temp(dstep)))
+                   !rate(j)=4.57d4*alpha(j)*dsqrt(temp(dstep)*1.84e3)*GRAIN_AREA*fr*cion*exp(-temp(dstep)*1e-3)
                 ELSE
                     DO i=1,nspec-1
                         IF (specname(i).eq.re1(j)) THEN
                            IF (beta(j).eq.0.0 ) THEN
                                 !taken from Rawlings et al. 1992
-                                rate(j)=4.57d4*alpha(j)*dsqrt(temp(dstep)/mass(i))*GRAIN_AREA*fr
+                                rate(j)=4.57d4*alpha(j)*dsqrt(temp(dstep)/mass(i))*GRAIN_AREA*fr*exp(-temp(dstep)*1e-3)
                             ELSE
                                 !Make rates sets beta=1 for ion freeze out. this catches that and
                                 !freezes differently
                                 cion=1.0+16.71d-4/(GRAIN_RADIUS*temp(dstep))
-                                rate(j)=4.57d4*alpha(j)*dsqrt(temp(dstep)/mass(i))*GRAIN_AREA*fr*cion
+                                rate(j)=4.57d4*alpha(j)*dsqrt(temp(dstep)/mass(i))*GRAIN_AREA*fr*cion*exp(-temp(dstep)*1e-3)
                             ENDIF
                         ENDIF
                     END DO
@@ -90,7 +94,6 @@ SUBROUTINE calculateReactionRates
             !Basic gas phase reactions 
                 rate(j) = alpha(j)*((temp(dstep)/300.)**beta(j))*dexp(-gama(j)/temp(dstep))
             ENDIF
-
         END SELECT
     END DO
 

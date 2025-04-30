@@ -56,16 +56,16 @@ CONTAINS
         temp=initialTemp
 
       do ii=1,points
-         read(66,*) timegrid(1),(junk,kk=1,3),densgrid(ii,1),(junk,kk=1,3),tempgrid(ii,1),(junk,kk=1,2),avgrid(ii,1),nh2grid(ii,1),ncogrid(ii,1)
+         read(66,*) timegrid(1),(junk,kk=1,3),densgrid(ii,1),(junk,kk=1,3),tempgrid(ii,1),(junk,kk=1,3),avgrid(ii,1),nh2grid(ii,1),ncogrid(ii,1)
 !         dens(ii) = densgrid(ii,1)/(1.4*mh)
          do jj=2,ntime
-            read(66,*) timegrid(jj),(junk,kk=1,3),densgrid(ii,jj),(junk,kk=1,3),tempgrid(ii,jj),(junk,kk=1,2),avgrid(ii,jj),nh2grid(ii,jj),ncogrid(ii,jj)
+            read(66,*) timegrid(jj),(junk,kk=1,3),densgrid(ii,jj),(junk,kk=1,3),tempgrid(ii,jj),(junk,kk=1,3),avgrid(ii,jj),nh2grid(ii,jj),ncogrid(ii,jj)
          end do
       end do
 
       coldens = 2e4*sqrt(dens/(1.4*mh*G_N))
       av = baseAv + coldens*6e-22
-      
+
     END SUBROUTINE
 
     SUBROUTINE updateTargetTime

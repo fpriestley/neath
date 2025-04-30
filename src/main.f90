@@ -20,13 +20,18 @@ IMPLICIT NONE
     !Any subset of the parameters can be passed in a file on program start
     !see example.inp
     
-    !read(*,*) trajecfile,points,ntime
     trajecfile = 'neath_example_data.out'
-    points = 250
-    ntime = 121
+    points = 636
+    ntime = 128
     outputFile='output/'//TRIM(trajecfile)
     
     INCLUDE 'readparameters.f90'
+
+    alpha(2199) = 0.9 ! CO to #CO
+    alpha(2286) = 0.1 ! CO to #CH3OH
+    alpha(483) = 2.2e-8 ! CH3CNH+ + e- to CH3CN + H
+    beta(483) = -1.03
+    alpha(636) = 2.5e-9 ! C+ + OH
 
     dstep=1
     tstep = 1

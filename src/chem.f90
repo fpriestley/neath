@@ -9,6 +9,7 @@ IMPLICIT NONE
     include "network.f90"
    !These integers store the array index of important species and reactions, x is for ions    
     integer :: nh,nh2,nc,ncx,no,nn,ns,nhe,nco,nmg,nf,nh2o,nsi,nsix,ncl,nclx,nch3oh,np
+    integer :: nhx,nhex,nsx,nmgx,nox,nnx
     integer :: nrco,njunk,evapevents,ngrainco,readAbunds
     !loop counters    
     integer :: i,j,l,writeStep,writeCounter=0
@@ -81,7 +82,10 @@ IMPLICIT NONE
     double precision :: ncogr(dimco) =(/12.0d+00, 13.0d+00, 14.0d+00, 15.0d+00,&
       &16.0d+00, 17.0d+00, 18.0d+00 /)
     double precision :: nh2gr(dimh2)=(/18.0d+00, 19.0d+00, 20.0d+00, 21.0d+00,&
-       &22.0d+00, 23.0d+00 /)
+         &22.0d+00, 23.0d+00 /)
+
+    ! list of positive ions to conserve charge
+    integer :: nion,ionlist(nspec)
 CONTAINS
 !This gets called immediately by main so put anything here that you want to happen before the time loop begins, reader is necessary.
     SUBROUTINE initializeChemistry
@@ -100,8 +104,8 @@ CONTAINS
             abund(nhe,:) = fhe                       
             abund(no,:) = fo  
             abund(nn,:) = fn               
-            abund(ns,:) = fs
-            abund(nmg,:) = fmg
+            abund(nsx,:) = fs
+            abund(nmgx,:) = fmg
             abund(nsix,:) = fsi                
             abund(nclx,:) = fcl 
             !abund(np,:) = fp
@@ -123,7 +127,8 @@ CONTAINS
                     abund(nc,:)=1.d-10
                     abund(ncx,:)=fc
             END SELECT
-            abund(nspec,:)=abund(ncx,:)
+            ! include all positive ions in electron abundance
+            abund(nspec,:) = abund(ncx,:) + abund(nsx,:) + abund(nsix,:) + abund(nmgx,:)
 
         ENDIF
         !Initial calculations of diffusion frequency for each species bound to grain
@@ -150,7 +155,15 @@ CONTAINS
             ALLOCATE(abstol(NEQ))
         END IF
         !OPTIONS = SET_OPTS(METHOD_FLAG=22, ABSERR_VECTOR=abstol, RELERR=reltol,USER_SUPPLIED_JACOBIAN=.FALSE.)
-        
+
+        ! get list of positive-charged species to conserve charge later
+        nion = 0
+        do i=1,nspec
+           if (index(specname(i),'+') .ne. 0) then
+              nion = nion + 1
+              ionlist(nion) = i
+           end if
+        end do
 
     END SUBROUTINE initializeChemistry
 
@@ -173,7 +186,7 @@ CONTAINS
             IF (specname(i).eq.'C+')  ncx = i
             IF (specname(i).eq.'O')   no  = i
             IF (specname(i).eq.'N')   nn  = i
-            IF (specname(i).eq.'S+')  ns  = i
+            IF (specname(i).eq.'S')  ns  = i
             IF (specname(i).eq.'HE')  nhe = i
             IF (specname(i).eq.'CO')  nco = i
             IF (specname(i).eq.'MG')  nmg = i
@@ -186,6 +199,12 @@ CONTAINS
             IF (specname(i).eq.'#CO') ngrainco = i
             IF (specname(i).eq. 'P') np=i
             IF (specname(i).eq.'F') nf=i
+            IF (specname(i).eq.'H+')   nhx  = i
+            IF (specname(i).eq.'HE+')   nhex  = i
+            IF (specname(i).eq.'S+')   nsx  = i
+            IF (specname(i).eq.'MG+')   nmgx  = i
+            IF (specname(i).eq.'O+')   nox  = i
+            IF (specname(i).eq.'N+')   nnx  = i
             IF (columnFlag) THEN
                 DO j=1,nout
                     IF (specname(i).eq.outSpecies(j)) outIndx(j)=i
@@ -302,7 +321,7 @@ CONTAINS
       double precision :: temptarget
       temptarget = targetTime
       !This subroutine calls DVODE (3rd party ODE solver) until it can reach targetTime with acceptable errors (reltol/abstol)
-        DO WHILE(currentTime .lt. targetTime)         
+        DO WHILE(currentTime .lt. targetTime)
             !reset parameters for DVODE
             ITASK=1 !try to integrate to targetTime
             ISTATE=1 !pretend every step is the first
@@ -316,8 +335,8 @@ CONTAINS
             OPTIONS = SET_OPTS(METHOD_FLAG=22, ABSERR_VECTOR=abstol, RELERR=reltol,USER_SUPPLIED_JACOBIAN=.FALSE.,MXSTEP=MXSTEP)
             CALL DVODE_F90(F,NEQ,abund(:,dstep),currentTime,temptarget,ITASK,ISTATE,OPTIONS)
             SELECT CASE(ISTATE)
-            CASE(2)
-               if (temptarget .lt. targettime) temptarget = targettime 
+                CASE(2)
+                    if (temptarget .lt. targettime) temptarget = targettime 
                 CASE(-1)
                     !More steps required for this problem
                     MXSTEP=MXSTEP*2    
@@ -333,14 +352,16 @@ CONTAINS
                     !Successful as far as currentTime but many errors.
                     !Make targetTime smaller and just go again
                    !targetTime=currentTime+10.0/year
-                   temptarget = currenttime + 1e4/year
+                   temptarget = currenttime + 0.5*(temptarget - currenttime)
                    write(*,*) 'DVODE ERROR -4'
                 CASE(-5)
                    !targetTime=currentTime*1.01
-                   temptarget = currenttime + 1e4/year
+                   temptarget = currenttime + 0.5*(temptarget - currenttime)
                    write(*,*) 'DVODE ERROR -5'
             END SELECT
-        END DO                   
+            ! reset electron abundance to sum of positive ions    
+            abund(nspec,dstep) = sum(abund(ionlist(1:nion),dstep))
+        END DO
     END SUBROUTINE integrate
 
     !This is where reacrates subroutine is hidden
@@ -354,6 +375,8 @@ CONTAINS
         INTENT(IN)  :: NEQ, T, Y
         INTENT(OUT) :: YDOT
         DOUBLE PRECISION :: D,loss,prod
+        integer :: ii
+        double precision :: phi,cgr(6),grec,denom
         !Set D to the gas density for use in the ODEs
         D=y(NEQ)
         ydot=0.0
@@ -374,6 +397,60 @@ CONTAINS
 
         ! get density change from physics module to send to DLSODE
         IF (collapse .eq. 1) ydot(NEQ)=densdot(y(NEQ))
+
+        ! grain-assisted recombination stuff from Weingartner & Draine (2001)
+        phi = radfield * exp(-2.5*av(dstep)) * sqrt(temp(dstep)) / (D*y(nspec)) ! phi = G T^0.5 / n_e
+        phi = max(phi,1e2)
+        ! H
+        cgr = (/ 8.074e-6, 1.378, 5.087e2, 1.586e-2, 0.4723, 1.102e-5 /)
+        denom = 1. + cgr(1) * phi**cgr(2) * (1. + cgr(3) * temp(dstep)**cgr(4) * phi**(-cgr(5)-cgr(6)*log(temp(dstep))))
+        grec = 0.6 * 12.25e-14 / denom
+        ydot(nhx) = ydot(nhx) - grec*y(nhx)*D
+        ydot(nh) = ydot(nh) + grec*y(nhx)*D
+        ! He
+        cgr = (/ 3.185e-7, 1.512, 5.115e3, 3.903e-7, 0.4956, 5.494e-7 /)
+        denom = 1. + cgr(1) * phi**cgr(2) * (1. + cgr(3) * temp(dstep)**cgr(4) * phi**(-cgr(5)-cgr(6)*log(temp(dstep))))
+        grec = 0.6 * 5.572e-14 / denom
+        ydot(nhex) = ydot(nhex) - grec*y(nhex)*D
+        ydot(nhe) = ydot(nhe) + grec*y(nhex)*D
+        ! C
+        cgr = (/ 6.089e-3, 1.128, 4.331e2, 4.845e-2, 0.8120, 1.333e-4 /)
+        denom = 1. + cgr(1) * phi**cgr(2) * (1. + cgr(3) * temp(dstep)**cgr(4) * phi**(-cgr(5)-cgr(6)*log(temp(dstep))))
+        grec = 0.6 * 45.58e-14 / denom
+        ydot(ncx) = ydot(ncx) - grec*y(ncx)*D
+        ydot(nc) = ydot(nc) + grec*y(ncx)*D
+        ! Mg
+        cgr = (/ 8.116e-8, 1.864, 6.170e4, 2.169e-6, 0.9605, 7.232e-5 /)
+        denom = 1. + cgr(1) * phi**cgr(2) * (1. + cgr(3) * temp(dstep)**cgr(4) * phi**(-cgr(5)-cgr(6)*log(temp(dstep))))
+        grec = 0.6 * 2.510e-14 / denom
+        ydot(nmgx) = ydot(nmgx) - grec*y(nmgx)*D
+        ydot(nmg) = ydot(nmg) + grec*y(nmgx)*D
+        ! S
+        cgr = (/ 7.769e-5, 1.319, 1.087e2, 3.475e-1, 0.4790, 4.689e-2 /)
+        denom = 1. + cgr(1) * phi**cgr(2) * (1. + cgr(3) * temp(dstep)**cgr(4) * phi**(-cgr(5)-cgr(6)*log(temp(dstep))))
+        grec = 0.6 * 3.064e-14 / denom
+        ydot(nsx) = ydot(nsx) - grec*y(nsx)*D
+        ydot(ns) = ydot(ns) + grec*y(nsx)*D
+        ! Si
+        cgr = (/ 5.678e-8, 1.874, 4.375e4, 1.635e-6, 0.8964, 7.538e-5 /)
+        denom = 1. + cgr(1) * phi**cgr(2) * (1. + cgr(3) * temp(dstep)**cgr(4) * phi**(-cgr(5)-cgr(6)*log(temp(dstep))))
+        grec = 0.6 * 2.166e-14 / denom
+        ydot(nsix) = ydot(nsix) - grec*y(nsix)*D
+        ydot(nsi) = ydot(nsi) + grec*y(nsix)*D
+
+        ! replace electron ydot with sum of positive ion ydots to conserve charge
+        ydot(nspec) = 0.
+        prod = 0.
+        loss = 0.
+        do ii=1,nion
+           if (ydot(ionlist(ii)) .ge. 0.) then
+              prod = prod + ydot(ionlist(ii))
+           else
+              loss = loss + ydot(ionlist(ii))
+           end if
+        end do
+        ydot(nspec) = prod + loss
+        
     END SUBROUTINE F
 
 !integrate calls reacrates to get the reaction rates at every iteration. reacrates calls further functions.
